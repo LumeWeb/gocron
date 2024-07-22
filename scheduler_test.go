@@ -2633,3 +2633,44 @@ func TestScheduler_WithMonitor(t *testing.T) {
 		})
 	}
 }
+
+func TestJob_Lock(t *testing.T) {
+	locker := &testLocker{
+		notLocked: make(chan struct{}, 1),
+	}
+
+	s := newTestScheduler(t,
+		WithDistributedLocker(locker),
+	)
+
+	jobRan := make(chan struct{})
+	j, err := s.NewJob(
+		DurationJob(time.Millisecond*100),
+		NewTask(func() {
+			time.Sleep(50 * time.Millisecond)
+			jobRan <- struct{}{}
+		}),
+	)
+	require.NoError(t, err)
+
+	s.Start()
+	defer s.Shutdown()
+
+	select {
+	case <-jobRan:
+		// Job has run
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Job did not run in time")
+	}
+
+	require.Eventually(t, func() bool {
+		if locker.jobLocked {
+			return true
+		}
+
+		return false
+	}, 200*time.Millisecond, 100*time.Millisecond, "Job should be locked")
+
+	lock := j.Lock()
+	assert.NotNil(t, lock, "Job Lock() should return a non-nil Locker")
+}

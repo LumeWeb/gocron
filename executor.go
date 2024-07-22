@@ -30,6 +30,8 @@ type executor struct {
 	jobsOutCompleted chan uuid.UUID
 	// used to request jobs from the scheduler
 	jobOutRequest chan jobOutRequest
+	// used to request jobs from the scheduler
+	jobOutUpdateLockRequest chan jobOutUpdateLockRequest
 
 	// used by the executor to receive a stop signal from the scheduler
 	stopCh chan struct{}
@@ -378,7 +380,14 @@ func (e *executor) runJob(j internalJob, jIn jobIn) {
 			e.incrementJobCounter(j, Skip)
 			return
 		}
-		defer func() { _ = lock.Unlock(j.ctx) }()
+		e.jobOutUpdateLockRequest <- jobOutUpdateLockRequest{
+			id:   j.id,
+			lock: lock,
+		}
+
+		defer func() {
+			_ = lock.Unlock(j.ctx)
+		}()
 	} else if e.locker != nil {
 		lock, err := e.locker.Lock(j.ctx, j.name)
 		if err != nil {
@@ -387,7 +396,14 @@ func (e *executor) runJob(j internalJob, jIn jobIn) {
 			e.incrementJobCounter(j, Skip)
 			return
 		}
-		defer func() { _ = lock.Unlock(j.ctx) }()
+		e.jobOutUpdateLockRequest <- jobOutUpdateLockRequest{
+			id:   j.id,
+			lock: lock,
+		}
+
+		defer func() {
+			_ = lock.Unlock(j.ctx)
+		}()
 	}
 	_ = callJobFuncWithParams(j.beforeJobRuns, j.id, j.name)
 

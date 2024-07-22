@@ -30,6 +30,7 @@ type internalJob struct {
 	nextScheduled []time.Time
 
 	lastRun            time.Time
+	lastLock           Lock
 	function           any
 	parameters         []any
 	timer              clockwork.Timer
@@ -1026,6 +1027,7 @@ type Job interface {
 	RunNow() error
 	// Tags returns the job's string tags.
 	Tags() []string
+	Lock() Lock
 }
 
 var _ Job = (*job)(nil)
@@ -1125,4 +1127,10 @@ func (j job) RunNow() error {
 		err = errReceived
 	}
 	return err
+}
+
+func (j job) Lock() Lock {
+	ij := requestJob(j.id, j.jobOutRequest)
+
+	return ij.lastLock
 }
