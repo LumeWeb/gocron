@@ -86,8 +86,6 @@ type scheduler struct {
 	allJobsOutRequest chan allJobsOutRequest
 	// used to send a jobs out when a request is made by the client
 	jobOutRequestCh chan jobOutRequest
-	// used to update a job's lock
-	jobOutUpdateLockRequestCh chan jobOutUpdateLockRequest
 	// used to run a job on-demand when requested by the client
 	runJobRequestCh chan runJobRequest
 	// new jobs are received here
@@ -137,11 +135,12 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 		logger:           &noOpLogger{},
 		clock:            clockwork.NewRealClock(),
 
-		jobsIn:                 make(chan jobIn),
-		jobsOutForRescheduling: make(chan uuid.UUID),
-		jobsOutCompleted:       make(chan uuid.UUID),
-		jobOutRequest:          make(chan jobOutRequest, 1000),
-		done:                   make(chan error),
+		jobsIn:                  make(chan jobIn),
+		jobsOutForRescheduling:  make(chan uuid.UUID),
+		jobsOutCompleted:        make(chan uuid.UUID),
+		jobOutRequest:           make(chan jobOutRequest, 1000),
+		jobOutUpdateLockRequest: make(chan jobOutUpdateLockRequest),
+		done:                    make(chan error),
 	}
 
 	s := &scheduler{
@@ -152,17 +151,16 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 		location:       time.Local,
 		logger:         &noOpLogger{},
 
-		newJobCh:                  make(chan newJobIn),
-		removeJobCh:               make(chan uuid.UUID),
-		removeJobsByTagsCh:        make(chan []string),
-		startCh:                   make(chan struct{}),
-		startedCh:                 make(chan struct{}),
-		stopCh:                    make(chan struct{}),
-		stopErrCh:                 make(chan error, 1),
-		jobOutRequestCh:           make(chan jobOutRequest),
-		jobOutUpdateLockRequestCh: make(chan jobOutUpdateLockRequest),
-		runJobRequestCh:           make(chan runJobRequest),
-		allJobsOutRequest:         make(chan allJobsOutRequest),
+		newJobCh:           make(chan newJobIn),
+		removeJobCh:        make(chan uuid.UUID),
+		removeJobsByTagsCh: make(chan []string),
+		startCh:            make(chan struct{}),
+		startedCh:          make(chan struct{}),
+		stopCh:             make(chan struct{}),
+		stopErrCh:          make(chan error, 1),
+		jobOutRequestCh:    make(chan jobOutRequest),
+		runJobRequestCh:    make(chan runJobRequest),
+		allJobsOutRequest:  make(chan allJobsOutRequest),
 	}
 
 	for _, option := range options {
@@ -197,7 +195,7 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 			case out := <-s.jobOutRequestCh:
 				s.selectJobOutRequest(out)
 
-			case out := <-s.jobOutUpdateLockRequestCh:
+			case out := <-s.exec.jobOutUpdateLockRequest:
 				s.jobOutUpdateLockRequest(out)
 
 			case out := <-s.allJobsOutRequest:
