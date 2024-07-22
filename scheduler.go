@@ -86,6 +86,8 @@ type scheduler struct {
 	allJobsOutRequest chan allJobsOutRequest
 	// used to send a jobs out when a request is made by the client
 	jobOutRequestCh chan jobOutRequest
+	// used to update a job's lock
+	jobOutUpdateLockRequestCh chan jobOutUpdateLockRequest
 	// used to run a job on-demand when requested by the client
 	runJobRequestCh chan runJobRequest
 	// new jobs are received here
@@ -105,6 +107,10 @@ type newJobIn struct {
 type jobOutRequest struct {
 	id      uuid.UUID
 	outChan chan internalJob
+}
+type jobOutUpdateLockRequest struct {
+	id   uuid.UUID
+	lock Lock
 }
 
 type runJobRequest struct {
@@ -146,16 +152,17 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 		location:       time.Local,
 		logger:         &noOpLogger{},
 
-		newJobCh:           make(chan newJobIn),
-		removeJobCh:        make(chan uuid.UUID),
-		removeJobsByTagsCh: make(chan []string),
-		startCh:            make(chan struct{}),
-		startedCh:          make(chan struct{}),
-		stopCh:             make(chan struct{}),
-		stopErrCh:          make(chan error, 1),
-		jobOutRequestCh:    make(chan jobOutRequest),
-		runJobRequestCh:    make(chan runJobRequest),
-		allJobsOutRequest:  make(chan allJobsOutRequest),
+		newJobCh:                  make(chan newJobIn),
+		removeJobCh:               make(chan uuid.UUID),
+		removeJobsByTagsCh:        make(chan []string),
+		startCh:                   make(chan struct{}),
+		startedCh:                 make(chan struct{}),
+		stopCh:                    make(chan struct{}),
+		stopErrCh:                 make(chan error, 1),
+		jobOutRequestCh:           make(chan jobOutRequest),
+		jobOutUpdateLockRequestCh: make(chan jobOutUpdateLockRequest),
+		runJobRequestCh:           make(chan runJobRequest),
+		allJobsOutRequest:         make(chan allJobsOutRequest),
 	}
 
 	for _, option := range options {
@@ -189,6 +196,9 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 
 			case out := <-s.jobOutRequestCh:
 				s.selectJobOutRequest(out)
+
+			case out := <-s.jobOutUpdateLockRequestCh:
+				s.jobOutUpdateLockRequest(out)
 
 			case out := <-s.allJobsOutRequest:
 				s.selectAllJobsOutRequest(out)
@@ -423,6 +433,13 @@ func (s *scheduler) selectJobOutRequest(out jobOutRequest) {
 		}
 	}
 	close(out.outChan)
+}
+
+func (s *scheduler) jobOutUpdateLockRequest(out jobOutUpdateLockRequest) {
+	if j, ok := s.jobs[out.id]; ok {
+		j.lastLock = out.lock
+		s.jobs[out.id] = j
+	}
 }
 
 func (s *scheduler) selectNewJob(in newJobIn) {
