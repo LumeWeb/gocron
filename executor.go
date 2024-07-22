@@ -387,6 +387,9 @@ func (e *executor) runJob(j internalJob, jIn jobIn) {
 		}
 		defer func() { _ = lock.Unlock(j.ctx) }()
 	}
+
+	j.startedChan <- struct{}{}
+
 	_ = callJobFuncWithParams(j.beforeJobRuns, j.id, j.name)
 
 	e.sendOutForRescheduling(&jIn)
