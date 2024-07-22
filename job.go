@@ -999,6 +999,7 @@ type Job interface {
 	Tags() []string
 	Started() chan struct{}
 	Lock() Lock
+	Context() context.Context
 }
 
 var _ Job = (*job)(nil)
@@ -1108,4 +1109,10 @@ func (j job) Lock() Lock {
 	ij := requestJob(j.id, j.jobOutRequest)
 
 	return ij.lastLock
+}
+
+func (j job) Context() context.Context {
+	ij := requestJob(j.id, j.jobOutRequest)
+
+	return ij.ctx
 }
