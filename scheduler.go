@@ -107,6 +107,11 @@ type jobOutRequest struct {
 	outChan chan internalJob
 }
 
+type jobOutUpdateLockRequest struct {
+	id   uuid.UUID
+	lock Lock
+}
+
 type runJobRequest struct {
 	id      uuid.UUID
 	outChan chan error
@@ -131,11 +136,12 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 		logger:           &noOpLogger{},
 		clock:            clockwork.NewRealClock(),
 
-		jobsIn:                 make(chan jobIn),
-		jobsOutForRescheduling: make(chan uuid.UUID),
-		jobsOutCompleted:       make(chan uuid.UUID),
-		jobOutRequest:          make(chan jobOutRequest, 1000),
-		done:                   make(chan error),
+		jobsIn:                  make(chan jobIn),
+		jobsOutForRescheduling:  make(chan uuid.UUID),
+		jobsOutCompleted:        make(chan uuid.UUID),
+		jobOutRequest:           make(chan jobOutRequest, 1000),
+		jobOutUpdateLockRequest: make(chan jobOutUpdateLockRequest),
+		done:                    make(chan error),
 	}
 
 	s := &scheduler{
@@ -189,6 +195,9 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 
 			case out := <-s.jobOutRequestCh:
 				s.selectJobOutRequest(out)
+
+			case out := <-s.exec.jobOutUpdateLockRequest:
+				s.jobOutUpdateLockRequest(out)
 
 			case out := <-s.allJobsOutRequest:
 				s.selectAllJobsOutRequest(out)
@@ -432,6 +441,13 @@ func (s *scheduler) selectJobOutRequest(out jobOutRequest) {
 		}
 	}
 	close(out.outChan)
+}
+
+func (s *scheduler) jobOutUpdateLockRequest(out jobOutUpdateLockRequest) {
+	if j, ok := s.jobs[out.id]; ok {
+		j.lastLock = out.lock
+		s.jobs[out.id] = j
+	}
 }
 
 func (s *scheduler) selectNewJob(in newJobIn) {
