@@ -997,6 +997,7 @@ type Job interface {
 	// Tags returns the job's string tags.
 	Tags() []string
 	Started() chan struct{}
+	Lock() Locker
 }
 
 var _ Job = (*job)(nil)
@@ -1100,4 +1101,10 @@ func (j job) Started() chan struct{} {
 	ij := requestJob(j.id, j.jobOutRequest)
 
 	return ij.startedChan
+}
+
+func (j job) Lock() Locker {
+	ij := requestJob(j.id, j.jobOutRequest)
+
+	return ij.locker
 }
