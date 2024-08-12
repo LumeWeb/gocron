@@ -75,6 +75,14 @@ type limitModeConfig struct {
 	singletonJobsMu sync.Mutex
 }
 
+func (l *limitModeConfig) Limit() uint {
+	return l.limit
+}
+
+func (l *limitModeConfig) Mode() LimitMode {
+	return l.mode
+}
+
 func (e *executor) start() {
 	e.logger.Debug("gocron: executor started")
 

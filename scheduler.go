@@ -47,6 +47,8 @@ type Scheduler interface {
 	// JobsWaitingInQueue number of jobs waiting in Queue in case of LimitModeWait
 	// In case of LimitModeReschedule or no limit it will be always zero
 	JobsWaitingInQueue() int
+	SetLimit(uint, LimitMode) error
+	LimitMode() *limitModeConfig
 }
 
 // -----------------------------------------------
@@ -761,6 +763,35 @@ func (s *scheduler) JobsWaitingInQueue() int {
 		return len(s.exec.limitMode.in)
 	}
 	return 0
+}
+
+func (s *scheduler) SetLimit(limit uint, mode LimitMode) error {
+	if limit == 0 {
+		return ErrWithLimitConcurrentJobsZero
+	}
+
+	if s.exec.limitMode == nil {
+		s.exec.limitMode = &limitModeConfig{
+			in:            make(chan jobIn, 1000),
+			singletonJobs: make(map[uuid.UUID]struct{}),
+		}
+	}
+
+	s.exec.limitMode.limit = limit
+	s.exec.limitMode.mode = mode
+
+	if mode == LimitModeReschedule {
+		if s.exec.limitMode.mode == LimitModeReschedule {
+			return ErrLimitModeRescheduleResize
+		}
+
+		s.exec.limitMode.rescheduleLimiter = make(chan struct{}, limit)
+	}
+	return nil
+}
+
+func (s *scheduler) LimitMode() *limitModeConfig {
+	return s.exec.limitMode
 }
 
 // -----------------------------------------------
