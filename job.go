@@ -1021,7 +1021,7 @@ func (j job) ID() uuid.UUID {
 }
 
 func (j job) LastRun() (time.Time, error) {
-	ij := requestJob(j.id, j.jobOutRequest)
+	ij := requestJob(j.id, j.jobOutRequest, true)
 	if ij == nil || ij.id == uuid.Nil {
 		return time.Time{}, ErrJobNotFound
 	}
@@ -1033,7 +1033,7 @@ func (j job) Name() string {
 }
 
 func (j job) NextRun() (time.Time, error) {
-	ij := requestJob(j.id, j.jobOutRequest)
+	ij := requestJob(j.id, j.jobOutRequest, true)
 	if ij == nil || ij.id == uuid.Nil {
 		return time.Time{}, ErrJobNotFound
 	}
@@ -1046,7 +1046,7 @@ func (j job) NextRun() (time.Time, error) {
 }
 
 func (j job) NextRuns(count int) ([]time.Time, error) {
-	ij := requestJob(j.id, j.jobOutRequest)
+	ij := requestJob(j.id, j.jobOutRequest, true)
 	if ij == nil || ij.id == uuid.Nil {
 		return nil, ErrJobNotFound
 	}
@@ -1100,19 +1100,19 @@ func (j job) RunNow() error {
 }
 
 func (j job) Started() chan struct{} {
-	ij := requestJob(j.id, j.jobOutRequest)
+	ij := requestJob(j.id, j.jobOutRequest, true)
 
 	return ij.startedChan
 }
 
 func (j job) Lock() Lock {
-	ij := requestJob(j.id, j.jobOutRequest)
+	ij := requestJob(j.id, j.jobOutRequest, true)
 
 	return ij.lastLock
 }
 
 func (j job) Context() context.Context {
-	ij := requestJob(j.id, j.jobOutRequest)
+	ij := requestJob(j.id, j.jobOutRequest, false)
 
 	return ij.ctx
 }
