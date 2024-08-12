@@ -1100,13 +1100,13 @@ func (j job) RunNow() error {
 }
 
 func (j job) Started() chan struct{} {
-	ij := requestJob(j.id, j.jobOutRequest, true)
+	ij := requestJob(j.id, j.jobOutRequest, false)
 
 	return ij.startedChan
 }
 
 func (j job) Lock() Lock {
-	ij := requestJob(j.id, j.jobOutRequest, true)
+	ij := requestJob(j.id, j.jobOutRequest, false)
 
 	return ij.lastLock
 }
