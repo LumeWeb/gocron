@@ -679,7 +679,6 @@ func (s *scheduler) addOrUpdateJob(id uuid.UUID, definition JobDefinition, taskW
 	j.name = runtime.FuncForPC(taskFunc.Pointer()).Name()
 	j.function = tsk.function
 	j.parameters = tsk.parameters
-	j.startedChan = make(chan struct{})
 
 	// apply global job options
 	for _, option := range s.globalJobOptions {
