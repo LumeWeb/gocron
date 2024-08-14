@@ -47,9 +47,6 @@ type internalJob struct {
 	afterJobRunsWithPanic func(jobID uuid.UUID, jobName string, recoverData any)
 	afterLockError        func(jobID uuid.UUID, jobName string, err error)
 
-	// channels
-	startedChan chan struct{}
-
 	locker Locker
 }
 
@@ -997,7 +994,6 @@ type Job interface {
 	RunNow() error
 	// Tags returns the job's string tags.
 	Tags() []string
-	Started() chan struct{}
 	Lock() Lock
 	Context() context.Context
 }
@@ -1097,12 +1093,6 @@ func (j job) RunNow() error {
 		err = errReceived
 	}
 	return err
-}
-
-func (j job) Started() chan struct{} {
-	ij := requestJob(j.id, j.jobOutRequest, false)
-
-	return ij.startedChan
 }
 
 func (j job) Lock() Lock {
